@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { GeneratedComponent, Provider } from '../types';
+import { saveComponentHistory, loadComponentHistory, clearComponentHistory } from '../utils/componentStorage';
 
 interface UseComponentGeneratorReturn {
   components: GeneratedComponent[];
@@ -14,6 +15,11 @@ export function useComponentGenerator(): UseComponentGeneratorReturn {
   const [components, setComponents] = useState<GeneratedComponent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const history = loadComponentHistory();
+    setComponents(history);
+  }, []);
 
   const generate = useCallback(async (prompt: string, apiKey: string | undefined, provider: Provider) => {
     setIsLoading(true);
@@ -39,6 +45,7 @@ export function useComponentGenerator(): UseComponentGeneratorReturn {
         createdAt: new Date(),
       };
 
+      saveComponentHistory(newComponent);
       setComponents((prev) => [newComponent, ...prev]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -49,10 +56,15 @@ export function useComponentGenerator(): UseComponentGeneratorReturn {
   }, []);
 
   const removeComponent = useCallback((id: string) => {
-    setComponents((prev) => prev.filter((c) => c.id !== id));
+    setComponents((prev) => {
+      const updated = prev.filter((c) => c.id !== id);
+      localStorage.setItem('componentHistory', JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   const clearAll = useCallback(() => {
+    clearComponentHistory();
     setComponents([]);
   }, []);
 

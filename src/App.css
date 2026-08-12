@@ -361,6 +361,12 @@
   color: #857f70;
 }
 
+.prompt-error {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
 .btn-generate {
   height: 52px;
   padding: 0 22px;

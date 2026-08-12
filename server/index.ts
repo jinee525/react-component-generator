@@ -52,6 +52,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Expose-Headers': 'Content-Type',
 };
 
 type Provider = 'anthropic' | 'google';
@@ -65,7 +66,7 @@ function resolveApiKey(provider: Provider, clientKey?: string): string | null {
   return clientKey || ENV_KEYS[provider] || null;
 }
 
-async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
+async function* callAnthropicStream(prompt: string, apiKey: string): AsyncGenerator<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -78,6 +79,7 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
+      stream: true,
     }),
   });
 
@@ -85,14 +87,35 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
     throw new Error(`Claude API error: ${response.status}`);
   }
 
-  const data = (await response.json()) as {
-    content: Array<{ type: string; text?: string }>;
-  };
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
 
-  return data.content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines[lines.length - 1];
+
+    for (let i = 0; i < lines.length - 1; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith(':')) continue;
+      if (!line.startsWith('data: ')) continue;
+
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+          yield data.delta.text;
+        }
+      } catch {
+        // 파싱 실패 무시
+      }
+    }
+  }
 }
 
 async function callGoogleModel(prompt: string, apiKey: string, model: string): Promise<string> {
@@ -180,14 +203,50 @@ const server = Bun.serve({
           );
         }
 
-        const text =
-          provider === 'google'
-            ? await callGoogle(prompt, resolvedKey)
-            : await callAnthropic(prompt, resolvedKey);
+        if (provider === 'google') {
+          const text = await callGoogle(prompt, resolvedKey);
+          const code = ensureRenderCall(stripCodeFences(text));
+          return Response.json({ code }, { headers: CORS_HEADERS });
+        }
 
-        const code = ensureRenderCall(stripCodeFences(text));
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            try {
+              let fullText = '';
+              for await (const chunk of callAnthropicStream(prompt, resolvedKey)) {
+                fullText += chunk;
+                const json = JSON.stringify({ chunk });
+                controller.enqueue(new TextEncoder().encode(`data: ${json}\n\n`));
+              }
 
-        return Response.json({ code }, { headers: CORS_HEADERS });
+              const code = ensureRenderCall(stripCodeFences(fullText));
+              const json = JSON.stringify({ done: true, code });
+              controller.enqueue(new TextEncoder().encode(`data: ${json}\n\n`));
+              controller.close();
+            } catch (err) {
+              let errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+              if (errorMessage.includes('503')) {
+                errorMessage = 'API 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.';
+              } else if (errorMessage.includes('429')) {
+                errorMessage = '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.';
+              }
+
+              const json = JSON.stringify({ error: errorMessage });
+              controller.enqueue(new TextEncoder().encode(`data: ${json}\n\n`));
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(stream, {
+          status: 200,
+          headers: {
+            ...CORS_HEADERS,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          },
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
 

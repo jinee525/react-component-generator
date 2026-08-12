@@ -1,3 +1,4 @@
+// 프롬프트는 최대 500자로 제한 (AI 모델 입력 효율성 및 생성 시간 최적화)
 export const MAX_PROMPT_LENGTH = 500;
 
 export function validatePromptLength(prompt: string): string | null {

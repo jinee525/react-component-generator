@@ -16,5 +16,12 @@ React 19 프론트엔드. 프롬프트 입력(`PromptInput`) → `useComponentGe
 
 ## Local Golden Rules
 
-### 1. 사용자 입력이 트리거하는 로직만 테스트되어 있다 (Test Boundary)
-`src/components/PromptInput.test.tsx`만 존재한다 — 빈 입력 시 버튼 비활성화, 입력 후 활성화 및 `onGenerate` 호출, 로딩 중 비활성화 등 "사용자 입력이 무엇을 트리거하는가"를 검증한다. `ComponentCard.tsx`, `CodeView.tsx`, `LivePreview.tsx`, `useComponentGenerator.ts`는 테스트가 없다. 즉 이 프로젝트는 표시/오케스트레이션 컴포넌트보다 입력 검증·상태 전이 로직을 더 위험한 영역으로 보고 있다. 새 입력 검증이나 제출 조건 로직을 추가하면 반드시 테스트를 함께 작성하라.
+### 1. 입력 검증과 상태 로직은 분리하여 테스트한다 (Test Boundary)
+- **UI 입력 검증**: `src/components/PromptInput.test.tsx` — 빈 입력, 유효성, 로딩 상태에 따른 버튼 활성화 검증
+- **비즈니스 로직**: `src/utils/` 안의 순수 함수들은 각각 테스트 파일을 가짐
+  - `promptValidation.test.ts`: 프롬프트 길이 검증 (3개 테스트)
+  - `componentStorage.test.ts`: localStorage 저장/로드/삭제 (8개 테스트)
+- **UI 렌더링**: `ComponentCard.tsx`, `CodeView.tsx`, `LivePreview.tsx`는 테스트 없음 — 표시 로직만 있음
+- **상태 관리**: `useComponentGenerator.ts`는 localStorage 동기화 로직을 포함하며, 유틸리티 함수로 분리되어 테스트됨
+
+새 입력 검증, 상태 전이, 데이터 변환 로직을 추가하면 반드시 `src/utils/` 아래 순수 함수로 분리하고 테스트를 함께 작성하라.

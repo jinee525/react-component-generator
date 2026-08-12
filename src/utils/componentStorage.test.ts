@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { saveComponentHistory, loadComponentHistory, clearComponentHistory } from './componentStorage';
 import type { GeneratedComponent } from '../types';
 

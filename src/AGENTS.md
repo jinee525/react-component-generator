@@ -19,7 +19,7 @@ React 19 프론트엔드. 프롬프트 입력(`PromptInput`) → `useComponentGe
 ### 1. 입력 검증과 상태 로직은 분리하여 테스트한다 (Test Boundary)
 - **UI 입력 검증**: `src/components/PromptInput.test.tsx` — 빈 입력, 유효성, 로딩 상태에 따른 버튼 활성화 검증
 - **비즈니스 로직**: `src/utils/` 안의 순수 함수들은 각각 테스트 파일을 가짐
-  - `promptValidation.test.ts`: 프롬프트 길이 검증 (3개 테스트)
+  - `promptValidation.test.ts`: 프롬프트 길이 검증 (5개 테스트)
   - `componentStorage.test.ts`: localStorage 저장/로드/삭제 (8개 테스트)
 - **UI 렌더링**: `ComponentCard.tsx`, `CodeView.tsx`, `LivePreview.tsx`는 테스트 없음 — 표시 로직만 있음
 - **상태 관리**: `useComponentGenerator.ts`는 localStorage 동기화 로직을 포함하며, 유틸리티 함수로 분리되어 테스트됨

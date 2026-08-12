@@ -14,7 +14,6 @@ type Tab = 'preview' | 'code';
 
 export function ComponentCard({ component, onRemove, onRegenerate, isLoading }: ComponentCardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('preview');
-  const [previewKey, setPreviewKey] = useState(0);
   const createdAt = component.createdAt.toLocaleTimeString('ko-KR', {
     hour: '2-digit',
     minute: '2-digit',
@@ -28,14 +27,6 @@ export function ComponentCard({ component, onRemove, onRegenerate, isLoading }: 
           <p className="card-prompt">{component.prompt}</p>
         </div>
         <div className="card-actions">
-          <button
-            className="btn-refresh"
-            onClick={() => setPreviewKey((k) => k + 1)}
-            title="미리보기 새로고침"
-            aria-label="미리보기 새로고침"
-          >
-            ↻
-          </button>
           <button
             className="btn-regenerate"
             onClick={() => onRegenerate(component.prompt)}
@@ -67,7 +58,7 @@ export function ComponentCard({ component, onRemove, onRegenerate, isLoading }: 
       </div>
       <div className="card-content">
         {activeTab === 'preview' ? (
-          <LivePreview key={previewKey} code={component.code} />
+          <LivePreview code={component.code} />
         ) : (
           <CodeView code={component.code} />
         )}
